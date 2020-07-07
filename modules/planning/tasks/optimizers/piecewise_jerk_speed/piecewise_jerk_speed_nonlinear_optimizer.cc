@@ -20,13 +20,14 @@
 
 #include "modules/planning/tasks/optimizers/piecewise_jerk_speed/piecewise_jerk_speed_nonlinear_optimizer.h"
 
+
 #include <coin/IpIpoptApplication.hpp>
 #include <coin/IpSolveStatistics.hpp>
-
 #include <algorithm>
 #include <string>
 
 #include "modules/common/proto/pnc_point.pb.h"
+#include "modules/common/util/util.h"
 #include "modules/common/vehicle_state/vehicle_state_provider.h"
 #include "modules/planning/common/planning_gflags.h"
 #include "modules/planning/common/speed_profile_generator.h"
@@ -49,7 +50,7 @@ PiecewiseJerkSpeedNonlinearOptimizer::PiecewiseJerkSpeedNonlinearOptimizer(
     : SpeedOptimizer(config),
       smoothed_speed_limit_(0.0, 0.0, 0.0),
       smoothed_path_curvature_(0.0, 0.0, 0.0) {
-  ACHECK(config_.has_piecewise_jerk_nonlinear_speed_config());
+  ACHECK(config_.has_piecewise_jerk_nonlinear_speed_optimizer_config());
 }
 
 Status PiecewiseJerkSpeedNonlinearOptimizer::Process(
@@ -340,7 +341,7 @@ Status PiecewiseJerkSpeedNonlinearOptimizer::SmoothSpeedLimit() {
   piecewise_jerk_problem.set_weight_ddx(10.0);
   piecewise_jerk_problem.set_weight_dddx(10.0);
 
-  piecewise_jerk_problem.set_x_ref(10.0, speed_ref);
+  piecewise_jerk_problem.set_x_ref(10.0, std::move(speed_ref));
 
   if (!piecewise_jerk_problem.Optimize(4000)) {
     std::string msg("Smoothing speed limit failed");
@@ -396,7 +397,7 @@ Status PiecewiseJerkSpeedNonlinearOptimizer::SmoothPathCurvature(
   piecewise_jerk_problem.set_weight_ddx(10.0);
   piecewise_jerk_problem.set_weight_dddx(10.0);
 
-  piecewise_jerk_problem.set_x_ref(10.0, path_curvature);
+  piecewise_jerk_problem.set_x_ref(10.0, std::move(path_curvature));
 
   if (!piecewise_jerk_problem.Optimize(1000)) {
     std::string msg("Smoothing path curvature failed");
@@ -438,7 +439,8 @@ Status PiecewiseJerkSpeedNonlinearOptimizer::OptimizeByQP(
   piecewise_jerk_problem.set_x_bounds(s_bounds_);
 
   // TODO(Jinyun): parameter tunnings
-  const auto& config = config_.piecewise_jerk_nonlinear_speed_config();
+  const auto& config =
+      config_.piecewise_jerk_nonlinear_speed_optimizer_config();
   piecewise_jerk_problem.set_weight_x(0.0);
   piecewise_jerk_problem.set_weight_dx(0.0);
   piecewise_jerk_problem.set_weight_ddx(config.acc_weight());
@@ -452,7 +454,7 @@ Status PiecewiseJerkSpeedNonlinearOptimizer::OptimizeByQP(
     speed_data->EvaluateByTime(curr_t, &sp);
     x_ref.emplace_back(sp.s());
   }
-  piecewise_jerk_problem.set_x_ref(config.ref_s_weight(), x_ref);
+  piecewise_jerk_problem.set_x_ref(config.ref_s_weight(), std::move(x_ref));
 
   // Solve the problem
   if (!piecewise_jerk_problem.Optimize()) {
@@ -471,6 +473,8 @@ Status PiecewiseJerkSpeedNonlinearOptimizer::OptimizeByQP(
 Status PiecewiseJerkSpeedNonlinearOptimizer::OptimizeByNLP(
     std::vector<double>* distance, std::vector<double>* velocity,
     std::vector<double>* acceleration) {
+  static std::mutex mutex_tnlp;
+  UNIQUE_LOCK_MULTITHREAD(mutex_tnlp);
   // Set optimizer instance
   auto ptr_interface = new PiecewiseJerkSpeedNonlinearIpoptInterface(
       s_init_, s_dot_init_, s_ddot_init_, delta_t_, num_of_knots_,
@@ -480,7 +484,8 @@ Status PiecewiseJerkSpeedNonlinearOptimizer::OptimizeByNLP(
   ptr_interface->set_safety_bounds(s_bounds_);
 
   // Set weights and reference values
-  const auto& config = config_.piecewise_jerk_nonlinear_speed_config();
+  const auto& config =
+      config_.piecewise_jerk_nonlinear_speed_optimizer_config();
 
   ptr_interface->set_curvature_curve(smoothed_path_curvature_);
 
@@ -550,7 +555,6 @@ Status PiecewiseJerkSpeedNonlinearOptimizer::OptimizeByNLP(
   }
 
   const auto start_timestamp = std::chrono::system_clock::now();
-
   status = app->OptimizeTNLP(problem);
 
   const auto end_timestamp = std::chrono::system_clock::now();
