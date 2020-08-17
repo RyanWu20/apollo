@@ -20,12 +20,14 @@ source "${APOLLO_ROOT_DIR}/scripts/apollo.bashrc"
 
 # CACHE_ROOT_DIR="${APOLLO_ROOT_DIR}/.cache"
 
-VERSION_X86_64="cyber-x86_64-18.04-20191003_1544"
-VERSION_AARCH64="cyber-aarch64-18.04-20190621_1606"
-
+VERSION_X86_64="cyber-x86_64-18.04-20200812_0256"
+# ARMV8
+# VERSION_AARCH64="cyber-aarch64-18.04-20200717_0327"
+# L4T
+VERSION_AARCH64="cyber-aarch64-18.04-20200719_0434"
 VERSION_LOCAL_CYBER="local_cyber_dev"
 CYBER_CONTAINER="apollo_cyber_${USER}"
-CYBER_INSIDE="in_cyber_docker"
+CYBER_INSIDE="in-cyber-docker"
 
 DOCKER_REPO="apolloauto/apollo"
 DOCKER_RUN_CMD="docker run"
@@ -39,8 +41,6 @@ USE_GPU=0
 USE_LOCAL_IMAGE=0
 CUSTOM_VERSION=
 GEOLOC=
-
-ARCH=$(uname -m)
 
 # Check whether user has agreed license agreement
 function check_agreement() {
@@ -260,7 +260,29 @@ function determine_target_version_and_arch() {
     CUSTOM_VERSION="${version}"
 }
 
-# Operate on DOCKER_REPO
+function _geo_specific_config_for_cn() {
+    local docker_cfg="/etc/docker/daemon.json"
+    if [ -e "${docker_cfg}" ] && \
+        jq '."registry-mirrors"[]' "${docker_cfg}" &>/dev/null ; then
+        echo "Existing registry mirrors in found ${docker_cfg} and will be used."
+        return
+    fi
+
+    if [ ! -e "${docker_cfg}" ]; then
+        echo "{\"experimental\":true, \"registry-mirrors\":[ \
+               \"http://hub-mirror.c.163.com\", \
+               \"https://reg-mirror.qiniu.com\", \
+               \"https://dockerhub.azk8s.cn\" \
+           ]}" | jq -s ".[]" | sudo tee -a "${docker_cfg}"
+    else
+        local tmpfile="$(mktemp /tmp/docker.daemon.XXXXXX)"
+        jq '.+={"registry-mirrors":["http://hub-mirror.c.163.com","https://reg-mirror.qiniu.com","https://dockerhub.azk8s.cn"]}' \
+            "${docker_cfg}" > "${tmpfile}"
+        sudo cp -f "${tmpfile}" "${docker_cfg}"
+    fi
+    service docker restart
+}
+
 function geo_specific_config() {
     local geo="$1"
     if [[ -z "${geo}" ]]; then
@@ -268,11 +290,29 @@ function geo_specific_config() {
     fi
     info "Setup geolocation specific configurations for ${geo}"
     if [[ "${geo}" == "cn" ]]; then
-        info "TODO: CN mirrors"
+        _geo_specific_config_for_cn
     fi
 }
 
-function determine_gpu_use() {
+function determine_gpu_use_aarch64() {
+    local use_gpu=0
+    if  lsmod | grep -q nvgpu ; then
+        use_gpu=1
+    fi
+    if [[ "${use_gpu}" -eq 1 ]]; then
+        local docker_version
+        docker_version="$(docker version --format '{{.Server.Version}}')"
+        if dpkg --compare-versions "${docker_version}" "ge" "19.03"; then
+            DOCKER_RUN_CMD="docker run --gpus all"
+        else
+            warning "You must upgrade to docker-ce 19.03+ to access GPU from container!"
+            use_gpu=0
+        fi
+    fi
+    USE_GPU="${use_gpu}"
+}
+
+function determine_gpu_use_amd64() {
     # Check nvidia-driver and GPU device
     local nv_driver="nvidia-smi"
     if [ ! -x "$(command -v ${nv_driver} )" ]; then
@@ -309,6 +349,14 @@ function determine_gpu_use() {
     fi
 }
 
+function determine_gpu_use() {
+    if [[ "${HOST_ARCH}" == "x86_64" ]]; then
+        determine_gpu_use_amd64
+    else
+        determine_gpu_use_aarch64
+    fi
+
+}
 function setup_devices_and_mount_volumes() {
     local __retval="$1"
 
@@ -352,17 +400,6 @@ function setup_devices_and_mount_volumes() {
     fi
     volumes="$(tr -s " " <<< "${volumes}")"
     eval "${__retval}='${volumes}'"
-}
-
-function determine_display() {
-    local display
-    # read from env
-    if [[ -z "${DISPLAY}" ]]; then
-        display=":0"
-    else
-        display="${DISPLAY}"
-    fi
-    echo "${display}"
 }
 
 function remove_existing_cyber_container() {
@@ -440,7 +477,7 @@ function start_cyber_container() {
     local local_volumes
     setup_devices_and_mount_volumes local_volumes
 
-    local display="$(determine_display)"
+    local display="${DISPLAY:-:0}"
 
     set -x
     ${DOCKER_RUN_CMD} -it \
@@ -481,11 +518,11 @@ function after_run_setup() {
         docker exec -u root "${CYBER_CONTAINER}" \
             bash -c '/apollo/scripts/docker_start_user.sh'
     fi
-    if [[ "${TARGET_ARCH}" == "aarch64" ]]; then
-        warning "!!! Due to problem with 'docker exec' on Drive PX2 platform," \
-                "please run '/apollo/scripts/docker_start_user.sh' the first" \
-                "time you login into cyber docker !!!"
-    fi
+    # if [[ "${TARGET_ARCH}" == "aarch64" ]]; then
+    #    warning "!!! Due to problem with 'docker exec' on Drive PX2 platform," \
+    #            "please run '/apollo/scripts/docker_start_user.sh' the first" \
+    #            "time you login into cyber docker !!!"
+    # fi
 }
 
 function main() {

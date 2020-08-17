@@ -66,6 +66,9 @@ license and copyright terms herein.
 #include <string>
 #include <vector>
 
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+
 #include "cyber/common/log.h"
 #include "modules/perception/base/syncedmem.h"
 
@@ -120,12 +123,9 @@ class Blob {
   void Reshape(const std::vector<int>& shape);
   void ReshapeLike(const Blob& other);
   inline std::string shape_string() const {
-    std::ostringstream stream;
-    for (int i = 0; i < shape_.size(); ++i) {
-      stream << shape_[i] << " ";
-    }
-    stream << "(" << count_ << ")";
-    return stream.str();
+    return shape_.empty()
+               ? absl::StrCat("(", count_, ")")
+               : absl::StrCat(absl::StrJoin(shape_, " "), " (", count_, ")");
   }
   inline const std::vector<int>& shape() const { return shape_; }
   /**
@@ -246,7 +246,7 @@ class Blob {
     int offset = 0;
     for (int i = 0; i < num_axes(); ++i) {
       offset *= shape(i);
-      if (indices.size() > i) {
+      if (static_cast<int>(indices.size()) > i) {
         CHECK_GE(indices[i], 0);
         CHECK_LT(indices[i], shape(i));
         offset += indices[i];

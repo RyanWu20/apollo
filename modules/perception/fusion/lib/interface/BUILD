@@ -1,3 +1,4 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
 load("//tools:cpplint.bzl", "cpplint")
 
 package(default_visibility = ["//visibility:public"])
@@ -6,7 +7,7 @@ cc_library(
     name = "interface",
     hdrs = [
         "base_data_association.h",
-        "base_existance_fusion.h",
+        "base_existence_fusion.h",
         "base_fusion_system.h",
         "base_gatekeeper.h",
         "base_motion_fusion.h",

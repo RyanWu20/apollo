@@ -15,10 +15,12 @@
  *****************************************************************************/
 #pragma once
 
-#include <boost/circular_buffer.hpp>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include <boost/circular_buffer.hpp>
 
 #include "modules/perception/base/box.h"
 #include "modules/perception/base/object_types.h"
@@ -39,7 +41,7 @@ struct alignas(16) LidarObjectSupplement {
     is_background = false;
     is_in_roi = false;
     num_points_in_roi = 0;
-    height_above_ground = FLT_MAX;
+    height_above_ground = std::numeric_limits<float>::max();
     raw_probs.clear();
     raw_classification_methods.clear();
   }
@@ -62,7 +64,7 @@ struct alignas(16) LidarObjectSupplement {
   // @brief number of cloud points in roi
   size_t num_points_in_roi = 0;
   // @brief object height above ground
-  float height_above_ground = FLT_MAX;
+  float height_above_ground = std::numeric_limits<float>::max();
 
   // @brief raw probability of each classification method
   std::vector<std::vector<float>> raw_probs;
@@ -201,6 +203,8 @@ typedef std::shared_ptr<MotionBuffer> MotionBufferPtr;
 typedef std::shared_ptr<const MotionBuffer> MotionBufferConstPtr;
 
 struct alignas(16) Vehicle3DStatus {
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   float yaw_delta;  // azimuth angle change
   float pitch_delta;
   float roll_delta;

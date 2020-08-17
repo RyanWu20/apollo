@@ -47,8 +47,10 @@ using common::math::Vec2d;
 int PathReferenceDecider::valid_path_reference_counter_ = 0;
 int PathReferenceDecider::total_path_counter_ = 0;
 
-PathReferenceDecider::PathReferenceDecider(const TaskConfig &config)
-    : Task(config) {}
+PathReferenceDecider::PathReferenceDecider(
+    const TaskConfig &config,
+    const std::shared_ptr<DependencyInjector> &injector)
+    : Task(config, injector) {}
 
 Status PathReferenceDecider::Execute(Frame *frame,
                                      ReferenceLineInfo *reference_line_info) {
@@ -58,6 +60,7 @@ Status PathReferenceDecider::Execute(Frame *frame,
 
 Status PathReferenceDecider::Process(Frame *frame,
                                      ReferenceLineInfo *reference_line_info) {
+  constexpr double kMathEpsilon = 1e-10;
   // skip using path reference during lane changing
   // There are two reference line during change lane
   if (FLAGS_skip_path_reference_in_change_lane &&
@@ -67,6 +70,17 @@ Status PathReferenceDecider::Process(Frame *frame,
     ADEBUG << "Skip path reference when changing lane.";
     ADEBUG << "valid_path_reference_counter[" << valid_path_reference_counter_
            << "] total_path_counter[" << total_path_counter_ << "]";
+    std::string err_msg = "Skip path reference when changing lane.";
+    reference_line_info->mutable_debug()
+        ->mutable_planning_data()
+        ->mutable_hybrid_model()
+        ->set_learning_model_output_fail_reason(err_msg);
+    reference_line_info->mutable_debug()
+        ->mutable_planning_data()
+        ->mutable_hybrid_model()
+        ->set_learning_model_output_usage_ratio(
+            static_cast<double>(valid_path_reference_counter_) /
+            (total_path_counter_ + kMathEpsilon));
     return Status::OK();
   }
 
@@ -78,6 +92,17 @@ Status PathReferenceDecider::Process(Frame *frame,
     ADEBUG << "Skip path reference when sidepass.";
     ADEBUG << "valid_path_reference_counter[" << valid_path_reference_counter_
            << "] total_path_counter[" << total_path_counter_ << "]";
+    std::string err_msg = "Skip path reference when sidepass.";
+    reference_line_info->mutable_debug()
+        ->mutable_planning_data()
+        ->mutable_hybrid_model()
+        ->set_learning_model_output_fail_reason(err_msg);
+    reference_line_info->mutable_debug()
+        ->mutable_planning_data()
+        ->mutable_hybrid_model()
+        ->set_learning_model_output_usage_ratio(
+            static_cast<double>(valid_path_reference_counter_) /
+            (total_path_counter_ + kMathEpsilon));
     return Status::OK();
   }
 
@@ -88,7 +113,8 @@ Status PathReferenceDecider::Process(Frame *frame,
 
   // get learning model output (trajectory) from frame
   const std::vector<common::TrajectoryPoint> &path_reference =
-      frame->learning_based_data().learning_data_adc_future_trajectory_points();
+      injector_->learning_based_data()
+          ->learning_data_adc_future_trajectory_points();
   ADEBUG << "There are " << path_reference.size() << " path points.";
 
   // get regular path bound
@@ -100,10 +126,44 @@ Status PathReferenceDecider::Process(Frame *frame,
     AERROR << msg;
     ADEBUG << "valid_path_reference_counter[" << valid_path_reference_counter_
            << "] total_path_counter[" << total_path_counter_ << "]";
+    std::string err_msg = "No regular path boundary";
+    reference_line_info->mutable_debug()
+        ->mutable_planning_data()
+        ->mutable_hybrid_model()
+        ->set_learning_model_output_fail_reason(err_msg);
+    reference_line_info->mutable_debug()
+        ->mutable_planning_data()
+        ->mutable_hybrid_model()
+        ->set_learning_model_output_usage_ratio(
+            static_cast<double>(valid_path_reference_counter_) /
+            (total_path_counter_ + kMathEpsilon));
     return Status(ErrorCode::PLANNING_ERROR, msg);
   }
 
   ++total_path_counter_;
+
+  // when learning model has no output, use rule-based model instead.
+  if (path_reference.size() == 0) {
+    reference_line_info->mutable_path_data()->set_is_valid_path_reference(
+        false);
+    ADEBUG << "valid_path_reference_counter[" << valid_path_reference_counter_
+           << "] total_path_counter[" << total_path_counter_ << "]";
+    std::string err_msg = "No learning model output";
+    reference_line_info->mutable_debug()
+        ->mutable_planning_data()
+        ->mutable_hybrid_model()
+        ->set_learning_model_output_fail_reason(err_msg);
+    reference_line_info->mutable_debug()
+        ->mutable_planning_data()
+        ->mutable_hybrid_model()
+        ->set_learning_model_output_usage_ratio(
+            static_cast<double>(valid_path_reference_counter_) /
+            (total_path_counter_ + kMathEpsilon));
+    return Status::OK();
+  }
+
+  RecordDebugInfo(path_reference, reference_line_info);
+
   // check if path reference is valid
   // current, only check if path reference point is within path bounds
   if (!IsValidPathReference(*reference_line_info,
@@ -111,10 +171,20 @@ Status PathReferenceDecider::Process(Frame *frame,
                             path_reference)) {
     reference_line_info->mutable_path_data()->set_is_valid_path_reference(
         false);
-    ADEBUG << "Learning model output violates path bounds. Not a validated "
-              "path reference";
     ADEBUG << "valid_path_reference_counter[" << valid_path_reference_counter_
            << "] total_path_counter[" << total_path_counter_ << "]";
+    std::string err_msg = "Learning model output violates path bounds";
+    reference_line_info->mutable_debug()
+        ->mutable_planning_data()
+        ->mutable_hybrid_model()
+        ->set_learning_model_output_fail_reason(err_msg);
+    // export reuse ratio to debug info
+    reference_line_info->mutable_debug()
+        ->mutable_planning_data()
+        ->mutable_hybrid_model()
+        ->set_learning_model_output_usage_ratio(
+            static_cast<double>(valid_path_reference_counter_) /
+            (total_path_counter_ + kMathEpsilon));
     return Status::OK();
   }
 
@@ -125,13 +195,23 @@ Status PathReferenceDecider::Process(Frame *frame,
 
   // mark learning trajectory as path reference
   reference_line_info->mutable_path_data()->set_is_valid_path_reference(true);
-
-  reference_line_info->mutable_path_data()->set_path_reference(
-      evaluated_path_reference);
+  // export decider result to debug info
+  reference_line_info->mutable_debug()
+      ->mutable_planning_data()
+      ->mutable_hybrid_model()
+      ->set_using_learning_model_output(true);
 
   ++valid_path_reference_counter_;
   ADEBUG << "valid_path_reference_counter[" << valid_path_reference_counter_
          << "] total_path_counter[" << total_path_counter_ << "]";
+
+  // export reuse ratio to debug info
+  reference_line_info->mutable_debug()
+      ->mutable_planning_data()
+      ->mutable_hybrid_model()
+      ->set_learning_model_output_usage_ratio(
+          static_cast<double>(valid_path_reference_counter_) /
+          (total_path_counter_ + kMathEpsilon));
 
   return Status::OK();
 }
@@ -316,6 +396,47 @@ void PathReferenceDecider::EvaluatePathReference(
     evaluated_path_reference->emplace_back(
         discrete_path_reference.Evaluate(cur_s));
   }
+}
+
+void PathReferenceDecider::RecordDebugInfo(
+    const std::vector<TrajectoryPoint> &path_reference,
+    ReferenceLineInfo *const reference_line_info) {
+  // Sanity checks.
+  ACHECK(!path_reference.empty());
+  CHECK_NOTNULL(reference_line_info);
+
+  // Take learning model output and transform it into
+  // PathData so that it can be displayed in simulator.
+  std::vector<common::FrenetFramePoint> frenet_frame_path_reference_points;
+  for (const TrajectoryPoint &path_reference_point : path_reference) {
+    common::SLPoint point_sl;
+    reference_line_info->reference_line().XYToSL(
+        {path_reference_point.path_point().x(),
+         path_reference_point.path_point().y()},
+        &point_sl);
+    common::FrenetFramePoint frenet_frame_point;
+    frenet_frame_point.set_s(point_sl.s());
+    frenet_frame_point.set_dl(0.0);
+    frenet_frame_point.set_ddl(0.0);
+    // get l from reference line
+    frenet_frame_point.set_l(point_sl.l());
+    frenet_frame_path_reference_points.push_back(frenet_frame_point);
+  }
+
+  auto frenet_frame_path_reference =
+      FrenetFramePath(std::move(frenet_frame_path_reference_points));
+  PathData path_reference_data;
+  path_reference_data.SetReferenceLine(
+      &(reference_line_info->reference_line()));
+  path_reference_data.SetFrenetPath(std::move(frenet_frame_path_reference));
+
+  // Insert the transformed PathData into the simulator display.
+  auto *ptr_display_path =
+      reference_line_info->mutable_debug()->mutable_planning_data()->add_path();
+  ptr_display_path->set_name("path_reference");
+  ptr_display_path->mutable_path_point()->CopyFrom(
+      {path_reference_data.discretized_path().begin(),
+       path_reference_data.discretized_path().end()});
 }
 
 }  // namespace planning

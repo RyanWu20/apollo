@@ -350,8 +350,7 @@ TEST(TestSuite, CheckPreprocessPointsCPU) {
       new float[test_obj.max_num_pillars * test_obj.max_num_points_per_pillar *
                 test_obj.num_point_feature];
   float* pillar_coors = new float[test_obj.max_num_pillars * 4];
-  float* sparse_pillar_map =
-      new float[kNumIndsForScan * kNumIndsForScan];
+  float* sparse_pillar_map = new float[kNumIndsForScan * kNumIndsForScan];
 
   int host_pillar_count[1] = {0};
   test_obj.Preprocess(points_array, pcl_pc_ptr->size(), x_coors, y_coors,
@@ -397,8 +396,7 @@ TEST(TestSuite, CheckPreprocessGPU) {
   apollo::perception::benchmark::PointCloudPtr org_cloud_ptr(
       new pcl::PointCloud<apollo::perception::benchmark::PointXYZIL>);
   std::string file_name =
-      "/apollo/modules/perception/testdata/lidar/app/data/perception/"
-      "lidar/files/0001_00.pcd";
+      "/apollo/modules/perception/testdata/lidar/app/data/0001_00.pcd";
 
   bool ret = apollo::perception::benchmark::load_pcl_pcds_xyzit(file_name,
                                                                 org_cloud_ptr);
@@ -630,8 +628,7 @@ TEST(TestSuite, CheckDoInference) {
   apollo::perception::benchmark::PointCloudPtr org_cloud_ptr(
       new pcl::PointCloud<apollo::perception::benchmark::PointXYZIL>);
   std::string file_name =
-      "/apollo/modules/perception/testdata/lidar/app/data/perception/"
-      "lidar/files/0001_00.pcd";
+      "/apollo/modules/perception/testdata/lidar/app/data/0001_00.pcd";
 
   bool ret = apollo::perception::benchmark::load_pcl_pcds_xyzit(file_name,
                                                                 org_cloud_ptr);

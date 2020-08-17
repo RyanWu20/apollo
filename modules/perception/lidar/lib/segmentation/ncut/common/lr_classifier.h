@@ -19,6 +19,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <string>
 #include <tuple>
@@ -34,6 +35,9 @@ namespace perception {
 namespace lidar {
 
 class LRClassifier {
+ public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
  public:
   LRClassifier() = default;
   ~LRClassifier() {}
@@ -56,12 +60,12 @@ class LRClassifier {
 
   std::string GetLabel(base::PointFCloudConstPtr cloud) {
     // point cloud should be rotated
-    float x_max = -FLT_MAX;
-    float y_max = -FLT_MAX;
-    float z_max = -FLT_MAX;
-    float x_min = FLT_MAX;
-    float y_min = FLT_MAX;
-    float z_min = FLT_MAX;
+    float x_max = -std::numeric_limits<float>::max();
+    float y_max = -std::numeric_limits<float>::max();
+    float z_max = -std::numeric_limits<float>::max();
+    float x_min = std::numeric_limits<float>::max();
+    float y_min = std::numeric_limits<float>::max();
+    float z_min = std::numeric_limits<float>::max();
     for (size_t i = 0; i < cloud->size(); ++i) {
       auto pt = (*cloud)[i];
       x_min = std::min(x_min, pt.x);

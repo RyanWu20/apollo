@@ -16,6 +16,7 @@
 #include "modules/perception/fusion/lib/data_association/hm_data_association/hm_tracks_objects_match.h"
 
 #include <map>
+#include <numeric>
 #include <utility>
 
 #include "modules/perception/common/graph/secure_matrix.h"

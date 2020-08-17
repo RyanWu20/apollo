@@ -15,7 +15,7 @@
  *****************************************************************************/
 #include "modules/monitor/monitor.h"
 
-#include "modules/common/time/time.h"
+#include "cyber/time/clock.h"
 #include "modules/monitor/common/monitor_manager.h"
 #include "modules/monitor/hardware/esdcan_monitor.h"
 #include "modules/monitor/hardware/gps_monitor.h"
@@ -25,6 +25,7 @@
 #include "modules/monitor/software/functional_safety_monitor.h"
 #include "modules/monitor/software/latency_monitor.h"
 #include "modules/monitor/software/localization_monitor.h"
+#include "modules/monitor/software/module_monitor.h"
 #include "modules/monitor/software/process_monitor.h"
 #include "modules/monitor/software/recorder_monitor.h"
 #include "modules/monitor/software/summary_monitor.h"
@@ -49,6 +50,8 @@ bool Monitor::Init() {
   runners_.emplace_back(new LocalizationMonitor());
   // Monitor if processes are running.
   runners_.emplace_back(new ProcessMonitor());
+  // Monitor if modules are running.
+  runners_.emplace_back(new ModuleMonitor());
   // Monitor message processing latencies across modules
   const std::shared_ptr<LatencyMonitor> latency_monitor(new LatencyMonitor());
   runners_.emplace_back(latency_monitor);
@@ -69,7 +72,7 @@ bool Monitor::Init() {
 }
 
 bool Monitor::Proc() {
-  const double current_time = apollo::common::time::Clock::NowInSeconds();
+  const double current_time = apollo::cyber::Clock::NowInSeconds();
   if (!MonitorManager::Instance()->StartFrame(current_time)) {
     return false;
   }

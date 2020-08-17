@@ -140,17 +140,16 @@ bool CNNSegmentation::Init(const SegmentationInitOptions& options) {
 
 bool CNNSegmentation::InitClusterAndBackgroundSegmentation() {
   // init ground detector
-  ground_detector_.reset(BaseGroundDetectorRegisterer::GetInstanceByName(
-      cnnseg_param_.ground_detector()));
-  CHECK_NOTNULL(ground_detector_.get());
+  ground_detector_ = BaseGroundDetectorRegisterer::GetInstanceByName(
+      cnnseg_param_.ground_detector());
+  CHECK_NOTNULL(ground_detector_);
   GroundDetectorInitOptions ground_detector_init_options;
   ACHECK(ground_detector_->Init(ground_detector_init_options))
       << "Failed to init ground detection.";
 
   // init roi filter
-  roi_filter_.reset(
-      BaseROIFilterRegisterer::GetInstanceByName(cnnseg_param_.roi_filter()));
-  CHECK_NOTNULL(roi_filter_.get());
+  roi_filter_ = BaseROIFilterRegisterer::GetInstanceByName(cnnseg_param_.roi_filter());
+  CHECK_NOTNULL(roi_filter_);
   ROIFilterInitOptions roi_filter_init_options;
   ACHECK(roi_filter_->Init(roi_filter_init_options))
       << "Failed to init roi filter.";
@@ -478,15 +477,9 @@ bool CNNSegmentation::GetConfigs(std::string* param_file,
   CNNSegConfig config;
   ACHECK(apollo::cyber::common::GetProtoFromFile(config_file, &config))
       << "Failed to parse CNNSeg config file";
-  if (config.use_paddle()) {
-    *proto_file = GetAbsolutePath(work_root, config.paddle_proto_file());
-    *weight_file = GetAbsolutePath(work_root, config.paddle_weight_file());
-    *param_file = GetAbsolutePath(work_root, config.paddle_param_file());
-  } else {
-    *proto_file = GetAbsolutePath(work_root, config.proto_file());
-    *weight_file = GetAbsolutePath(work_root, config.weight_file());
-    *param_file = GetAbsolutePath(work_root, config.param_file());
-  }
+  *proto_file = GetAbsolutePath(work_root, config.proto_file());
+  *weight_file = GetAbsolutePath(work_root, config.weight_file());
+  *param_file = GetAbsolutePath(work_root, config.param_file());
   *engine_file = GetAbsolutePath(work_root, config.engine_file());
 
   return true;

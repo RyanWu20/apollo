@@ -1,3 +1,4 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 load("//tools:cpplint.bzl", "cpplint")
 
 package(default_visibility = ["//visibility:public"])
@@ -19,11 +20,11 @@ cc_binary(
         "mainboard/module_controller.cc",
         "mainboard/module_controller.h",
     ],
+    linkopts = ["-pthread"],
     linkstatic = False,
     deps = [
         ":cyber_core",
         "//cyber/proto:dag_conf_cc_proto",
-        "//third_party:pthread",
     ],
 )
 
@@ -47,9 +48,12 @@ cc_library(
     hdrs = ["init.h"],
     deps = [
         "//cyber:state",
+        "//cyber/common:file",
         "//cyber/logger:async_logger",
         "//cyber/node",
+        "//cyber/proto:clock_cc_proto",
         "//cyber/sysmo",
+        "//cyber/time:clock",
         "//cyber/timer:timing_wheel",
     ],
 )
@@ -58,9 +62,7 @@ cc_library(
     name = "cyber_core",
     srcs = ["cyber.cc"],
     hdrs = ["cyber.h"],
-    linkopts = [
-        "-lprotobuf",
-    ],
+    linkopts = ["-lrt"],
     deps = [
         "//cyber:binary",
         "//cyber:init",
@@ -95,17 +97,25 @@ cc_library(
         "//cyber/sysmo",
         "//cyber/task",
         "//cyber/time",
+        "//cyber/time:clock",
         "//cyber/time:duration",
         "//cyber/time:rate",
         "//cyber/timer",
         "//cyber/transport",
         "//cyber/transport:participant",
         "//cyber/transport:sub_listener",
-        "//third_party:rt",
-        "//third_party:uuid",
-        "//third_party/tf2",
+        "@com_google_glog//:glog",
+        "@com_google_protobuf//:protobuf",
         "@fastrtps",
+        "@uuid",
     ],
+)
+
+filegroup(
+    name = "cyber_conf",
+    srcs = glob([
+        "conf/*.conf",
+    ]),
 )
 
 cpplint()

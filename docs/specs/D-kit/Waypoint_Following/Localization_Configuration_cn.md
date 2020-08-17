@@ -11,11 +11,12 @@
     - [PPS授时接口输出](#pps授时接口输出)
   - [系统文件配置](#系统文件配置)
     - [GNSS配置](#gnss配置)
-    - [检查GPS信号](#检查gps信号)
-    - [关闭点云定位](#关闭点云定位)
-    - [定位模式配置](#定位模式配置)
-    - [检查定位信号](#检查定位信号)
-  - [`Localization.conf`文件的配置](#localizationconf文件的配置)
+    - [`Localization.conf`文件的配置](#localizationconf文件的配置)
+  - [检查定位模块能否正常启动](#检查定位模块能否正常启动)
+      - [1. 编译项目，启动Dreamview](#1-编译项目启动dreamview)
+      - [2. 启动定位模块](#2-启动定位模块)
+      - [3. 检查GPS信号](#3-检查gps信号)
+      - [4. 检查定位信号](#4-检查定位信号)
   - [NEXT](#next)
   - [常见问题](#常见问题)
 
@@ -26,10 +27,11 @@
 ## 前提条件
 
  - 完成了[循迹搭建--车辆集成](Vehicle_Integration_cn.md)
+ - 拥有RTK基站账号
 
 ## 导航设备配置
 
-下面介绍了导航配置的方法。当设备正确接入系统后，在/dev/下面有名为ttyACM0的设备，即表示M2已经被正确的加载了。配置设备时，需要将设备的串口线连接上电脑的串口才可以对设备进行配置，也就是说，用来配置设备的电脑主机需要拥有串口。Windows下可以通过串口助手、串口猎人或者COMCenter等工具进行配置，Linux下可以通过Minicom、cutecom等工具进行配置。linux下建议使用cutecom软件，可使用`sudo apt-get install cutecom`来安装此软件，在终端中使用`sudo cutecom`命令打开该软件，在软件中`open`名为`ttyS0`的设备。
+下面介绍导航配置的方法。当设备正确接入系统后，在/dev/下面有名为ttyACM0的设备，即表示M2已经被正确地加载了。配置设备时，需要将设备的串口线连接上电脑的串口才可以对设备进行配置，也就是说，用来配置设备的电脑主机需要拥有串口。Windows下可以通过串口助手、串口猎人或者COMCenter等工具进行配置，Linux下可以通过Minicom、cutecom等工具进行配置。linux下建议使用cutecom软件，可使用`sudo apt install cutecom`来安装此软件，在终端中使用`sudo cutecom`命令打开该软件，在软件中`open`名为`ttyS0`的设备。
 
 ### 杆臂配置
 
@@ -37,7 +39,7 @@
 
 `$cmd,set,leverarm,gnss,x_offset,y_offset,z_offset*ff`
 
-这里的杆臂值就是车辆集成环节中测量所得的杆臂值，杆臂值请以自己使用的实际情况为准。
+这里的杆臂值`x_offset,y_offset,z_offset`就是车辆集成环节中测量所得的杆臂值，杆臂值请以自己使用的实际情况为准。
 
 ### GNSS航向配置
 
@@ -76,7 +78,18 @@ $cmd,set,netipport,111,112,113,114,8000*ff
 $cmd,set,netuser,username:password*ff
 $cmd,set,mountpoint,XMJL*ff
 ```
-这里我们假设您所使用的无线路由器的IP地址为192.168.0.1,那么我们将M2主机的IP地址设置为192.168.0.123，子网掩码为255.255.255.0，网关为192.168.0.1，netipport设置的是RTK基站的IP地址和端口，netuser设置的是RTK基站的用户名和密码，mountpoint是RTK基站的挂载点。网络配置请依据自己所使用的路由器的实际情况自行更改为相应的配置，RTK基站信息请以自己的实际情况为准。注意：在M2的网络模块配置完成后，在IPC主机中应该是可以ping通IMU的ip地址的；否则，IMU无法正常联网，在后续的GNSS信号检查中会一直显示SINGLE而不是我们期望的NARROW_INT。
+
+假如您通过自建RTK基站或者购买RTK基站服务的方式拥有了一个RTK基站账号，账号信息如下：
+
+```
+ip:203.107.45.154
+port:8002
+mount_point:RTCM32_GGB
+user:qianxun1234
+password:abc123
+```
+
+这里我们假设您所使用的无线路由器的IP地址为192.168.0.1,那么我们将M2主机的IP地址设置为192.168.0.123，子网掩码为255.255.255.0，网关为192.168.0.1。netipport设置的是RTK基站的IP地址和端口号，具体到上面您购买的RTK基站账号中，在此处IP地址为：203.107.45.154，端口号为：8002；netuser设置的是RTK基站的用户名和密码，在此处用户名为：qianxun1234，密码为：abc123；在实际配置中，请以自己实际购买的基站账号的用户名和密码为准。mountpoint是RTK基站的挂载点，在这里我们选用RTCM32_GGB。注意：在M2的网络模块配置完成后，在IPC主机中应该是可以ping通IMU的ip地址的；否则，IMU无法正常联网，在后续的GNSS信号检查中会一直显示SINGLE而不是我们期望的NARROW_INT。
 
 **注意**：当您升级了IMU的固件版本时，请用以下命令来查看IMU的网络相关的配置：
 
@@ -101,7 +114,7 @@ log com3 gprmc ontime 1 0.25
 
 ## 系统文件配置
 
-系统文件配置主要包括三个部分，GNSS配置、关闭点云定位和定位模式配置。
+系统文件配置主要包括两部分，GNSS配置、`localization.conf`文件配置。
 
 ### GNSS配置
 
@@ -150,36 +163,55 @@ rtk_from {
 
 注意：RTK基站信息需要同时配置在M2的IMU主机中和apollo的开发套件的`gnss_conf.pb.txt`配置文件中。
 
-### 检查GPS信号
+同时将文档中的`proj4_text: "+proj=utm +zone=50 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"`这一行中的`zone=50`中的50换成自己的城市所在的utmzone数值；比如这里的数值50代表的是北京，若您在纽约，则用纽约的utmzone数值10替换掉这里的数值50，以此类推。
 
-将车辆移至室外平坦开阔处，进入Apollo系统，在终端中执行gps.sh脚本打开gps模块。输入命令`cyber_monitor`，进入 `/apollo/sensor/gnss/best_pose`条目下，查看sol_type字段是否为NARROW_INT。若为NARROW_INT，则表示GPS信号良好；若不为NARROW_INT，则将车辆移动一下，直到出现NARROW_INT为止。进入`/apollo/sensor/gnss/imu`条目下，确认IMU有数据刷新即表明GPS模块配置成功。
-
-### 关闭点云定位
-
-在`apollo/modules/localization/conf/localization.conf`文件中将：`--enable_lidar_localization=true`修改为：`--enable_lidar_localization=false`。
-
-### 定位模式配置
-
-将`apollo/modules/localization/launch/localization.launch`文件中的`dag_streaming_rtk_localization.dag`修改为`dag_streaming_msf_localization.dag`。
-
-### 检查定位信号
-
-将车辆移至室外平坦开阔处，进入Apollo系统，在终端中执行gps.sh和localization.sh脚本打开gps模块和localization模块。确认GPS模块已成功启动并且GPS信号良好。输入命令`cyber_monotor`，进入`/apollo/localization/pose`条目下，等待两分钟，直到有数据刷新即表明定位模块配置成功。
-
-
-## `Localization.conf`文件的配置
-对`modules/localization/conf/localization.conf` 文件进行配置。**如果该配置文件没有进行正确配置，可能会对之后的传感器标定、虚拟车道线制作等功能产生影响**
-
+### `Localization.conf`文件的配置
+对`modules/calibration/data/dev_kit/localization_conf/localization.conf`文件进行配置。**如果该配置文件没有进行正确配置，可能会对之后的传感器标定、虚拟车道线制作等功能产生影响**
 
 | 参数 | 说明 |
 | --  |-- |
 |lidar_height_default|参数值修改为lidar中心到地面的距离 单位m|
-|local_utm_zone_id|  需要用户查询所在地区的utm_zone，并进行修改。例如，北京地区utm_zone为50 |
-|lidar_topic| 参数值修改为`/apollo/sensor/lidar16/compensator/PointCloud2` |
-|lidar_extrinsics_file|参数值修改为`/apollo/modules/localization/msf/params/velodyne_params/velodyne16_novatel_extrinsics.yaml`|
+|local_utm_zone_id|  需要用户查询所在地区的utm_zone，并进行修改。例如，北京地区utm_zone为50。utm_zone的查询可参考[该网页](https://mangomap.com/robertyoung/maps/69585/what-utm-zone-am-i-in-#) |
 |imu_to_ant_offset_x|x轴方向杆臂值，单位m，杆臂值测量方法参看`循迹搭建--车辆集成`文档|
 |imu_to_ant_offset_y|y轴方向杆臂值，单位m，杆臂值测量方法参看`循迹搭建--车辆集成`文档|
 |imu_to_ant_offset_z|z轴方向杆臂值，单位m，杆臂值测量方法参看`循迹搭建--车辆集成`文档|
+|--enable_lidar_localization=true|修改为`--enable_lidar_localization=false`|
+
+
+
+## 检查定位模块能否正常启动
+
+将车辆移至室外平坦开阔处，按顺序执行如下操作
+
+####  1. 编译项目，启动Dreamview
+进入docker环境，用gpu编译项目，启动DreamView 
+
+    cd /apollo
+    bash docker/scripts/dev_start.sh
+    bash docker/scripts/dev_into.sh
+    bash apollo.sh build_opt   
+    bash scripts/bootstrap.sh
+
+####  2. 启动定位模块
+
+- 在浏览器中打开`(http://localhost:8888)`，选择模式为`Dev Kit Debug`， 选择车型为`Dev Kit`，在Module Controller标签页启动GPS、Localization模块。
+
+  ![localization_config_start_localization](images/localization_config_start_localization.png)
+
+####  3. 检查GPS信号
+
+打开新的终端，并使用`bash docker/scripts/dev_into.sh`命令进入docker环境，在新终端中输入`cyber_monitor`命令，进入 `/apollo/sensor/gnss/best_pose`条目下，查看sol_type字段是否为NARROW_INT。若为NARROW_INT，则表示GPS信号良好；若不为NARROW_INT，则将车辆移动一下，直到出现NARROW_INT为止。进入`/apollo/sensor/gnss/imu`条目下，确认IMU有数据刷新即表明GPS模块配置成功。
+
+![localization_config_check_gps_1](images/localization_config_check_gps_1.png)
+![localization_config_check_gps_2](images/localization_config_check_gps_2.png)
+
+####  4. 检查定位信号
+
+使用`cyber_monotor`查看，进入`/apollo/localization/pose`条目下，等待两分钟，直到有数据刷新即表明定位模块配置成功。
+
+![localization_config_check_pose_1](images/localization_config_check_pose_1.png)
+![localization_config_check_pose_2](images/localization_config_check_pose_2.png)
+
 
 
 ## NEXT

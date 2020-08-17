@@ -24,7 +24,7 @@
 #include "modules/perception/camera/lib/obstacle/tracker/common/similar.h"
 #include "modules/perception/camera/lib/obstacle/tracker/omt/frame_list.h"
 #include "modules/perception/camera/lib/obstacle/tracker/omt/obstacle_reference.h"
-#include "modules/perception/camera/lib/obstacle/tracker/omt/omt.pb.h"
+#include "modules/perception/camera/lib/obstacle/tracker/omt/proto/omt.pb.h"
 #include "modules/perception/camera/lib/obstacle/tracker/omt/target.h"
 
 namespace apollo {
@@ -116,7 +116,7 @@ class OMTObstacleTracker : public BaseObstacleTracker {
   std::vector<Target> targets_;
   std::vector<bool> used_;
   ObstacleReference reference_;
-  std::vector<std::vector<float> > kTypeAssociatedCost_;
+  std::vector<std::vector<float>> kTypeAssociatedCost_;
   int track_id_ = 0;
   int frame_num_ = 0;
   int gpu_id_ = 0;

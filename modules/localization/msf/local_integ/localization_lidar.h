@@ -115,6 +115,8 @@ class LocalizationLidar {
 
   void GetLocalizationDistribution(Eigen::MatrixXd* distribution);
 
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
  protected:
   void ComposeMapNode(const Eigen::Vector3d& trans);
 

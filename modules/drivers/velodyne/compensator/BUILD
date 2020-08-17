@@ -1,10 +1,11 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 load("//tools:cpplint.bzl", "cpplint")
 
 package(default_visibility = ["//visibility:public"])
 
 cc_binary(
     name = "libvelodyne_compensator_component.so",
-    linkopts = ["-shared"],
+    linkshared = True,
     linkstatic = False,
     deps = [":compensator_component_lib"],
 )
@@ -18,8 +19,8 @@ cc_library(
         "//cyber",
         "//modules/common/adapters:adapter_gflags",
         "//modules/common/latency_recorder",
-        "//modules/common/time",
         "//modules/drivers/velodyne/compensator:compensator_lib",
+        "//modules/drivers/velodyne/proto:velodyne_cc_proto",
     ],
 )
 
@@ -29,10 +30,9 @@ cc_library(
     hdrs = ["compensator.h"],
     copts = ['-DMODULE_NAME=\\"velodyne\\"'],
     deps = [
-        "//cyber",
-        "//modules/drivers/proto:sensor_proto",
-        "//modules/drivers/velodyne/proto:velodyne_proto",
-        "//modules/transform:tf2_buffer_lib",
+        "//modules/drivers/proto:pointcloud_cc_proto",
+        "//modules/drivers/velodyne/proto:config_cc_proto",
+        "//modules/transform:buffer",
         "@eigen",
     ],
 )

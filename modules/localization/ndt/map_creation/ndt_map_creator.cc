@@ -14,17 +14,22 @@
  * limitations under the License.
  *****************************************************************************/
 
+#include <string>
+#include <vector>
+
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/random.hpp>
-#include <string>
-#include <vector>
+#include "absl/strings/str_cat.h"
 
 #include "modules/localization/msf/common/io/velodyne_utility.h"
 #include "modules/localization/msf/common/util/extract_ground_plane.h"
 #include "modules/localization/msf/common/util/system_utility.h"
 #include "modules/localization/msf/local_pyramid_map/ndt_map/ndt_map.h"
 #include "modules/localization/msf/local_pyramid_map/ndt_map/ndt_map_pool.h"
+
+using ::apollo::common::EigenAffine3dVec;
+using ::apollo::common::EigenVector3dVec;
 
 int main(int argc, char** argv) {
   boost::program_options::options_description boost_desc("Allowed options");
@@ -103,7 +108,7 @@ int main(int argc, char** argv) {
             << std::endl;
 
   // load all poses
-  std::vector<std::vector<Eigen::Affine3d>> pcd_poses(pcd_folder_paths.size());
+  std::vector<EigenAffine3dVec> pcd_poses(pcd_folder_paths.size());
   std::vector<std::vector<double>> time_stamps(pcd_folder_paths.size());
   std::vector<std::vector<unsigned int>> pcd_indices(pcd_folder_paths.size());
   for (std::size_t i = 0; i < pose_files.size(); ++i) {
@@ -156,14 +161,12 @@ int main(int argc, char** argv) {
   apollo::localization::msf::FeatureXYPlane plane_extractor;
 
   for (unsigned int i = 0; i < pcd_folder_paths.size(); ++i) {
-    const std::vector<Eigen::Affine3d>& pcd_poses_i = pcd_poses[i];
+    const EigenAffine3dVec& pcd_poses_i = pcd_poses[i];
     for (unsigned int frame_idx = 0; frame_idx < pcd_poses_i.size();
          ++frame_idx) {
       apollo::localization::msf::velodyne::VelodyneFrame velodyne_frame;
-      std::string pcd_file_path;
-      std::ostringstream ss;
-      ss << pcd_indices[i][frame_idx];
-      pcd_file_path = pcd_folder_paths[i] + "/" + ss.str() + ".pcd";
+      std::string pcd_file_path = absl::StrCat(
+          pcd_folder_paths[i], "/", pcd_indices[i][frame_idx], ".pcd");
       Eigen::Affine3d pcd_pose = pcd_poses_i[frame_idx];
       // Load pcd
       apollo::localization::msf::velodyne::LoadPcds(

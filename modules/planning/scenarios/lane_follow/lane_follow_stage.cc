@@ -23,8 +23,8 @@
 #include <utility>
 
 #include "cyber/common/log.h"
+#include "cyber/time/clock.h"
 #include "modules/common/math/math_utils.h"
-#include "modules/common/time/time.h"
 #include "modules/common/util/point_factory.h"
 #include "modules/common/util/string_util.h"
 #include "modules/common/vehicle_state/vehicle_state_provider.h"
@@ -48,8 +48,8 @@ using apollo::common::ErrorCode;
 using apollo::common::SLPoint;
 using apollo::common::Status;
 using apollo::common::TrajectoryPoint;
-using apollo::common::time::Clock;
 using apollo::common::util::PointFactory;
+using apollo::cyber::Clock;
 
 namespace {
 constexpr double kPathOptimizationFallbackCost = 2e4;
@@ -168,8 +168,8 @@ Status LaneFollowStage::PlanOnReferenceLine(
 
     const double end_timestamp = Clock::NowInSeconds();
     const double time_diff_ms = (end_timestamp - start_timestamp) * 1000;
-    ADEBUG << "after task[" << task->Name() << "]:"
-           << reference_line_info->PathSpeedDebugString();
+    ADEBUG << "after task[" << task->Name()
+           << "]:" << reference_line_info->PathSpeedDebugString();
     ADEBUG << task->Name() << " time spend: " << time_diff_ms << " ms.";
     RecordDebugInfo(reference_line_info, task->Name(), time_diff_ms);
 

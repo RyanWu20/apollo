@@ -22,6 +22,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include "gtest/gtest_prod.h"
@@ -56,12 +57,16 @@ class LocalizationMsgPublisher;
  */
 class MSFLocalization {
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+ public:
   MSFLocalization();
 
   apollo::common::Status Init();
   void InitParams();
   void OnPointCloud(const std::shared_ptr<drivers::PointCloud> &message);
   void OnRawImu(const std::shared_ptr<drivers::gnss::Imu> &imu_msg);
+  void OnRawImuCache(const std::shared_ptr<drivers::gnss::Imu> &imu_msg);
   void OnGnssRtkObs(
       const std::shared_ptr<drivers::gnss::EpochObservation> &raw_obs_msg);
   void OnGnssRtkEph(
@@ -70,6 +75,7 @@ class MSFLocalization {
       const std::shared_ptr<drivers::gnss::GnssBestPose> &bestgnsspos_msg);
   void OnGnssHeading(
       const std::shared_ptr<drivers::gnss::Heading> &gnss_heading_msg);
+  void OnGps();
 
   void SetPublisher(const std::shared_ptr<LocalizationMsgPublisher> &publisher);
 
@@ -97,6 +103,8 @@ class MSFLocalization {
   Eigen::Quaternion<double> imu_vehicle_quat_;
 
   std::shared_ptr<LocalizationMsgPublisher> publisher_;
+  std::shared_ptr<drivers::gnss::Imu> raw_imu_msg_;
+  std::mutex mutex_imu_msg_;
 };
 
 }  // namespace localization

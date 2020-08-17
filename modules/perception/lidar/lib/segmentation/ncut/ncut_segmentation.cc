@@ -18,6 +18,7 @@
 
 #include <omp.h>
 #include <algorithm>
+#include <limits>
 #include <map>
 
 #include "cyber/common/file.h"
@@ -43,17 +44,15 @@ bool NCutSegmentation::Init(const SegmentationInitOptions& options) {
   }
 
   // init ground detector
-  ground_detector_.reset(
-      BaseGroundDetectorRegisterer::GetInstanceByName(ground_detector_str_));
-  CHECK_NOTNULL(ground_detector_.get());
+  ground_detector_ = BaseGroundDetectorRegisterer::GetInstanceByName(ground_detector_str_);
+  CHECK_NOTNULL(ground_detector_);
   GroundDetectorInitOptions ground_detector_init_options;
   ACHECK(ground_detector_->Init(ground_detector_init_options))
       << "Failed to init ground detection.";
 
   // init roi filter
-  roi_filter_.reset(
-      BaseROIFilterRegisterer::GetInstanceByName(roi_filter_str_));
-  CHECK_NOTNULL(roi_filter_.get());
+  roi_filter_ = BaseROIFilterRegisterer::GetInstanceByName(roi_filter_str_);
+  CHECK_NOTNULL(roi_filter_);
   ROIFilterInitOptions roi_filter_init_options;
   ACHECK(roi_filter_->Init(roi_filter_init_options))
       << "Failed to init roi filter.";
@@ -297,7 +296,7 @@ bool NCutSegmentation::Segment(const SegmentationOptions& options,
   // .5.1 outlier
   for (size_t i = 0; i < cloud_outlier.size(); ++i) {
     base::PointFCloudPtr pc = cloud_components[cloud_outlier[i]];
-    base::ObjectPtr obj = std::make_shared<base::Object>();
+    base::ObjectPtr obj(new base::Object);
     obj->lidar_supplement.cloud = *pc;
     _outliers->push_back(obj);
   }
@@ -496,12 +495,12 @@ bool NCutSegmentation::IsOutlier(const base::PointFCloudPtr& in_cloud) {
   if (in_cloud->size() < min_num_points) {
     return true;
   }
-  float x_max = -FLT_MAX;
-  float y_max = -FLT_MAX;
-  float z_max = -FLT_MAX;
-  float x_min = FLT_MAX;
-  float y_min = FLT_MAX;
-  float z_min = FLT_MAX;
+  float x_max = -std::numeric_limits<float>::max();
+  float y_max = -std::numeric_limits<float>::max();
+  float z_max = -std::numeric_limits<float>::max();
+  float x_min = std::numeric_limits<float>::max();
+  float y_min = std::numeric_limits<float>::max();
+  float z_min = std::numeric_limits<float>::max();
   base::PointF pt_max = (*in_cloud)[0];
   for (size_t i = 0; i < in_cloud->size(); ++i) {
     const base::PointF& pt = (*in_cloud)[i];

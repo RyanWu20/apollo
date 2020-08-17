@@ -1,3 +1,4 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 load("//tools:cpplint.bzl", "cpplint")
 
 package(default_visibility = ["//visibility:public"])
@@ -19,6 +20,7 @@ cc_library(
         "//modules/monitor/software:functional_safety_monitor",
         "//modules/monitor/software:latency_monitor",
         "//modules/monitor/software:localization_monitor",
+        "//modules/monitor/software:module_monitor",
         "//modules/monitor/software:process_monitor",
         "//modules/monitor/software:recorder_monitor",
         "//modules/monitor/software:summary_monitor",

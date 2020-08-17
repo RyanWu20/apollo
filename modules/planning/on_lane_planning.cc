@@ -24,9 +24,9 @@
 #include "absl/strings/str_cat.h"
 #include "cyber/common/file.h"
 #include "cyber/common/log.h"
+#include "cyber/time/clock.h"
 #include "gtest/gtest_prod.h"
 #include "modules/common/math/quaternion.h"
-#include "modules/common/time/time.h"
 #include "modules/common/vehicle_state/vehicle_state_provider.h"
 #include "modules/map/hdmap/hdmap_util.h"
 #include "modules/planning/common/ego_info.h"
@@ -54,7 +54,7 @@ using apollo::common::TrajectoryPoint;
 using apollo::common::VehicleState;
 using apollo::common::VehicleStateProvider;
 using apollo::common::math::Vec2d;
-using apollo::common::time::Clock;
+using apollo::cyber::Clock;
 using apollo::dreamview::Chart;
 using apollo::hdmap::HDMapUtil;
 using apollo::planning_internal::SLFrameDebug;
@@ -73,9 +73,7 @@ OnLanePlanning::~OnLanePlanning() {
   injector_->ego_info()->Clear();
 }
 
-std::string OnLanePlanning::Name() const {
-  return "on_lane_planning";
-}
+std::string OnLanePlanning::Name() const { return "on_lane_planning"; }
 
 Status OnLanePlanning::Init(const PlanningConfig& config) {
   config_ = config;
@@ -116,7 +114,7 @@ Status OnLanePlanning::Init(const PlanningConfig& config) {
         "planning is not initialized with config : " + config_.DebugString());
   }
 
-  if (FLAGS_planning_learning_mode == 2 || FLAGS_planning_learning_mode == 3) {
+  if (config_.learning_mode() != PlanningConfig::NO_LEARNING) {
     PlanningSemanticMapConfig renderer_config;
     ACHECK(apollo::cyber::common::GetProtoFromFile(
         FLAGS_planning_birdview_img_feature_renderer_config_file,
@@ -265,7 +263,7 @@ void OnLanePlanning::RunOnce(const LocalView& local_view,
 
   // early return when reference line fails to update after rerouting
   if (failed_to_update_reference_line) {
-    std::string msg("Failed to updated reference line after rerouting.");
+    std::string msg("Failed to update reference line after rerouting.");
     AERROR << msg;
     ptr_trajectory_pb->mutable_decision()
         ->mutable_main_decision()
